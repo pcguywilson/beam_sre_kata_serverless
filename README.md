@@ -48,8 +48,6 @@ S3 Bucket Creation: Create an S3 bucket to store the Lambda function code, tests
 CodeBuild Project: Set up an AWS CodeBuild project to run the unit tests.
 Run Tests: Trigger CodeBuild to run the unit tests. The Lambda function will only be deployed if the tests pass.
 Lambda Function Deployment: Deploy the Lambda function and create a CloudWatch log group.
-Lambda Function
-The Lambda function (lambda/lambda_function.py) queries the Open Brewery DB API and logs the name, street, and phone number of each brewery in Columbus, Ohio.
 
 Environment Variables
 
