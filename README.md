@@ -53,7 +53,9 @@ The Lambda function (lambda/lambda_function.py) queries the Open Brewery DB API 
 
 Environment Variables
 CITY: The city to query (default is "Columbus").
+
 STATE: The state to query (default is "Ohio").
+
 Unit Testing
 The unit tests are defined in tests/test_lambda_function.py and use the pytest framework. The tests mock the API response and validate the Lambda function's output.
 
