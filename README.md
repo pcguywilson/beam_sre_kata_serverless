@@ -10,13 +10,13 @@ This project uses Terraform to create an AWS Lambda function that queries the Op
 
 ## Project Structure
 
-project//r
-├── main.tf 
-├── buildspec.yml 
-├── lambda/ 
-│ └── lambda_function.py 
-└── tests/ 
-└── test_lambda_function.py 
+project/  
+├── main.tf  
+├── buildspec.yml  
+├── lambda/  
+│ └── lambda_function.py  
+└── tests/  
+└── test_lambda_function.py  
 
 ### Files
 
