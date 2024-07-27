@@ -67,6 +67,9 @@ Install dependencies:
 ```bash
 pip install pytest requests
 ```
+```bash
+pytest tests/
+```
 Logging
 The Lambda function logs its output to CloudWatch Logs. You can view the logs in the AWS Management Console under CloudWatch Logs.
 
