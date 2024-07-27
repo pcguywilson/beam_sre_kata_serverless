@@ -52,6 +52,7 @@ Lambda Function
 The Lambda function (lambda/lambda_function.py) queries the Open Brewery DB API and logs the name, street, and phone number of each brewery in Columbus, Ohio.
 
 Environment Variables
+
 CITY: The city to query (default is "Columbus").
 
 STATE: The state to query (default is "Ohio").
