@@ -10,7 +10,7 @@ This project uses Terraform to create an AWS Lambda function that queries the Op
 
 ## Project Structure
 
-project/ 
+project//r
 ├── main.tf 
 ├── buildspec.yml 
 ├── lambda/ 
