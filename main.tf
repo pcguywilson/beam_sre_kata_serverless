@@ -58,13 +58,12 @@ resource "aws_iam_policy" "lambda_logging_policy" {
 
 # Create Lambda function
 resource "aws_lambda_function" "brewery_lambda" {
-  filename         = "${path.module}/lambda_function.zip"
+  filename         = "lambda_function.zip"
   function_name    = "brewery-lambda"
   role             = aws_iam_role.lambda_role.arn
   handler          = "lambda_function.lambda_handler"
   runtime          = "python3.8"
   timeout          = 60
-  source_code_hash = filebase64sha256("${path.module}/lambda_function.zip")
   tags             = local.common_tags
 
   environment {
@@ -82,14 +81,52 @@ resource "aws_cloudwatch_log_group" "lambda_log_group" {
   tags              = local.common_tags
 }
 
-# Create Lambda deployment package
-resource "null_resource" "pip_install" {
-  provisioner "local-exec" {
-    command = <<EOT
-      mkdir -p ./python &&
-      pip install -r requirements.txt -t ./python &&
-      cp lambda_function.py ./python/ &&
-      cd python && zip -r ../lambda_function.zip .
-    EOT
-  }
+# Create API Gateway
+resource "aws_api_gateway_rest_api" "brewery_api" {
+  name        = "brewery-api"
+  description = "API to query breweries in Columbus, Ohio"
+  tags        = local.common_tags
+}
+
+resource "aws_api_gateway_resource" "brewery_resource" {
+  rest_api_id = aws_api_gateway_rest_api.brewery_api.id
+  parent_id   = aws_api_gateway_rest_api.brewery_api.root_resource_id
+  path_part   = "breweries"
+}
+
+resource "aws_api_gateway_method" "get_method" {
+  rest_api_id   = aws_api_gateway_rest_api.brewery_api.id
+  resource_id   = aws_api_gateway_resource.brewery_resource.id
+  http_method   = "GET"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "lambda_integration" {
+  rest_api_id             = aws_api_gateway_rest_api.brewery_api.id
+  resource_id             = aws_api_gateway_resource.brewery_resource.id
+  http_method             = aws_api_gateway_method.get_method.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.brewery_lambda.invoke_arn
+}
+
+resource "aws_lambda_permission" "api_gateway_permission" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.brewery_lambda.arn
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_api_gateway_rest_api.brewery_api.execution_arn}/*/*"
+}
+
+resource "aws_api_gateway_deployment" "api_deployment" {
+  depends_on = [
+    aws_api_gateway_integration.lambda_integration
+  ]
+
+  rest_api_id = aws_api_gateway_rest_api.brewery_api.id
+  stage_name  = "prod"
+}
+
+output "api_url" {
+  value = aws_api_gateway_deployment.api_deployment.invoke_url
 }
