@@ -8,7 +8,6 @@ locals {
   }
 }
 
-# Create IAM role for Lambda
 resource "aws_iam_role" "lambda_role" {
   name = "lambda-role"
   assume_role_policy = jsonencode({
@@ -31,13 +30,6 @@ resource "aws_iam_role_policy_attachment" "lambda_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-# Package Lambda function code
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/lambda"
-  output_path = "${path.module}/lambda_function.zip"
-}
-
 resource "aws_s3_bucket" "lambda_code_bucket" {
   bucket = "lambda-code-bucket-${random_id.bucket_id.hex}"
   tags   = local.common_tags
@@ -47,10 +39,44 @@ resource "random_id" "bucket_id" {
   byte_length = 8
 }
 
+# Create a zip file for the lambda function
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  output_path = "${path.module}/lambda_function.zip"
+
+  source {
+    content  = file("${path.module}/lambda_function.py")
+    filename = "lambda_function.py"
+  }
+
+  # Install Python dependencies and include them in the zip file
+  source {
+    content  = filebase64("${path.module}/requirements.txt")
+    filename = "requirements.txt"
+  }
+}
+
+resource "null_resource" "pip_install" {
+  provisioner "local-exec" {
+    command = <<-EOF
+      pip install -r ${path.module}/requirements.txt -t ${path.module}/python
+      cd ${path.module} && zip -r lambda_function.zip python/
+    EOF
+
+    depends_on = [data.archive_file.lambda_zip]
+  }
+
+  triggers = {
+    always_run = "${timestamp()}"
+  }
+}
+
 resource "aws_s3_object" "lambda_code" {
   bucket = aws_s3_bucket.lambda_code_bucket.bucket
   key    = "lambda_function.zip"
-  source = data.archive_file.lambda_zip.output_path
+  source = "${path.module}/lambda_function.zip"
+
+  depends_on = [null_resource.pip_install]
 }
 
 resource "aws_lambda_function" "brewery_lambda" {
@@ -69,6 +95,8 @@ resource "aws_lambda_function" "brewery_lambda" {
       STATE = "Ohio"
     }
   }
+
+  depends_on = [aws_s3_object.lambda_code]
 }
 
 resource "aws_cloudwatch_log_group" "lambda_log_group" {
@@ -78,7 +106,6 @@ resource "aws_cloudwatch_log_group" "lambda_log_group" {
   depends_on        = [aws_lambda_function.brewery_lambda]
 }
 
-# Use formatdate() to create a valid IAM policy name
 locals {
   lambda_logging_policy_name = "lambda-logging-policy-${replace(formatdate("YYYYMMDDhhmmss", timestamp()), ":", "-")}"
 }
