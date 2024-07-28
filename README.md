@@ -57,7 +57,7 @@ Unit tests are provided in the `tests` directory. You can run the tests with the
 
 ```sh
 python -m unittest discover -s tests
-
+```
 
 To view the logs for your Lambda function in AWS CloudWatch, follow these steps:
 
