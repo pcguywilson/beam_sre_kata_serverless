@@ -83,3 +83,13 @@ resource "aws_cloudwatch_log_group" "lambda_log_group" {
   retention_in_days = 14
   tags              = local.common_tags
 }
+
+resource "null_resource" "pip_install" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      mkdir -p ./python &&
+      cp ./lambda_function.py ./python/ &&
+      cd ./python && zip -r ../lambda_function.zip .
+    EOT
+  }
+}
