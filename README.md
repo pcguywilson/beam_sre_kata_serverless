@@ -12,8 +12,7 @@ project-directory/\
 │\
 ├── lambda_function.py\
 ├── main.tf\
-├── requirements.txt\
-└── README.md\
+└── README.md
 
 
 Deployment Instructions
