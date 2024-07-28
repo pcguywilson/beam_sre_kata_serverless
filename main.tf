@@ -39,15 +39,15 @@ resource "random_id" "bucket_id" {
   byte_length = 8
 }
 
-# Create a zip file for the lambda function
 resource "null_resource" "pip_install" {
   provisioner "local-exec" {
-    command = <<-EOF
-      mkdir -p ${path.module}/python
-      pip install -r ${path.module}/requirements.txt -t ${path.module}/python
-      cp ${path.module}/lambda_function.py ${path.module}/python/
-      cd ${path.module}/python && zip -r ../lambda_function.zip .
-    EOF
+    command = <<EOT
+      mkdir -p ./python &&
+      pip install -r ./requirements.txt -t ./python &&
+      cp ./lambda_function.py ./python/ &&
+      cd ./python && zip -r ../lambda_function.zip .
+    EOT
+    interpreter = ["bash", "-c"]
   }
 }
 
