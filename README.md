@@ -1,4 +1,4 @@
-# Brewery Lambda Function
+# Beam SRE Serverless Brewery Lambda Function
 
 This README provides a guide for deploying an AWS Lambda function that queries the Open Brewery DB API for breweries in Columbus, Ohio. The function logs the brewery name, street, and phone to CloudWatch Logs.
 
