@@ -1,29 +1,29 @@
 import json
-import requests
+import urllib.request
+import logging
+import os
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 def lambda_handler(event, context):
-    city = event.get('CITY', 'Columbus')
-    state = event.get('STATE', 'Ohio')
+    city = os.getenv("CITY", "Columbus")
+    state = os.getenv("STATE", "Ohio")
+    
     url = f"https://api.openbrewerydb.org/v1/breweries?by_city={city}&by_state={state}"
     
-    response = requests.get(url)
-    breweries = response.json()
+    try:
+        response = urllib.request.urlopen(url)
+        breweries = json.loads(response.read().decode())
+        
+        breweries_list = [
+            {"name": brewery["name"], "street": brewery["street"], "phone": brewery["phone"]}
+            for brewery in sorted(breweries, key=lambda x: x["name"])
+        ]
+        
+        logger.info(json.dumps(breweries_list, indent=2))
+        return breweries_list
     
-    brewery_list = []
-    
-    for brewery in breweries:
-        brewery_info = {
-            "name": brewery.get("name"),
-            "street": brewery.get("street"),
-            "phone": brewery.get("phone")
-        }
-        brewery_list.append(brewery_info)
-    
-    brewery_list_sorted = sorted(brewery_list, key=lambda x: x['name'])
-    
-    print(json.dumps(brewery_list_sorted, indent=2))
-    
-    return {
-        "statusCode": 200,
-        "body": json.dumps(brewery_list_sorted)
-    }
+    except Exception as e:
+        logger.error(f"Error fetching breweries: {e}")
+        raise e
