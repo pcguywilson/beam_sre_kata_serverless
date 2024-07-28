@@ -58,12 +58,13 @@ resource "aws_iam_policy" "lambda_logging_policy" {
 
 # Create Lambda function
 resource "aws_lambda_function" "brewery_lambda" {
-  filename         = "lambda_function.zip"
+  filename         = "lambda_function.py"
   function_name    = "brewery-lambda"
   role             = aws_iam_role.lambda_role.arn
   handler          = "lambda_function.lambda_handler"
   runtime          = "python3.8"
   timeout          = 60
+  source_code_hash = filebase64sha256("lambda_function.py")
   tags             = local.common_tags
 
   environment {
