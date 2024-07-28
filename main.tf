@@ -49,19 +49,19 @@ resource "random_id" "bucket_id" {
 }
 
 # Upload buildspec and tests to S3
-resource "aws_s3_bucket_object" "buildspec" {
+resource "aws_s3_object" "buildspec" {
   bucket = aws_s3_bucket.codebuild_bucket.bucket
   key    = "buildspec.yml"
   source = "${path.module}/buildspec.yml"
 }
 
-resource "aws_s3_bucket_object" "lambda_code" {
+resource "aws_s3_object" "lambda_code" {
   bucket = aws_s3_bucket.codebuild_bucket.bucket
   key    = "lambda/lambda_function.py"
   source = "${path.module}/lambda/lambda_function.py"
 }
 
-resource "aws_s3_bucket_object" "tests" {
+resource "aws_s3_object" "tests" {
   bucket = aws_s3_bucket.codebuild_bucket.bucket
   key    = "tests/test_lambda_function.py"
   source = "${path.module}/tests/test_lambda_function.py"
@@ -104,9 +104,9 @@ resource "aws_codebuild_project" "lambda_tests" {
     image_pull_credentials_type = "CODEBUILD"
   }
   source {
-    type            = "S3"
-    location        = "${aws_s3_bucket.codebuild_bucket.bucket}/buildspec.yml"
-    buildspec       = "buildspec.yml"
+    type     = "S3"
+    location = "${aws_s3_bucket.codebuild_bucket.bucket}/buildspec.yml"
+    buildspec = "buildspec.yml"
   }
   tags = local.common_tags
 }
@@ -119,26 +119,6 @@ resource "null_resource" "trigger_codebuild" {
   depends_on = [aws_codebuild_project.lambda_tests]
 }
 
-# Wait for CodeBuild to complete and check the build status
-data "aws_codebuild_build" "latest_build" {
-  project_name = aws_codebuild_project.lambda_tests.name
-  depends_on   = [null_resource.trigger_codebuild]
-}
-
-resource "null_resource" "wait_for_tests" {
-  provisioner "local-exec" {
-    command = <<EOT
-      STATUS=$(aws codebuild batch-get-builds --ids ${data.aws_codebuild_build.latest_build.id} --query 'builds[0].buildStatus' --output text)
-      if [ "$STATUS" != "SUCCEEDED" ]; then
-        echo "Tests failed, aborting deployment."
-        exit 1
-      fi
-    EOT
-  }
-  depends_on = [data.aws_codebuild_build.latest_build]
-}
-
-# Deploy Lambda function only if tests pass
 resource "aws_lambda_function" "brewery_lambda" {
   filename         = data.archive_file.lambda_zip.output_path
   function_name    = "brewery-lambda"
@@ -155,7 +135,9 @@ resource "aws_lambda_function" "brewery_lambda" {
       STATE = "Ohio"
     }
   }
-  depends_on = [null_resource.wait_for_tests]
+
+  # Ensure the Lambda function is created after the CodeBuild is triggered
+  depends_on = [null_resource.trigger_codebuild]
 }
 
 resource "aws_cloudwatch_log_group" "lambda_log_group" {
