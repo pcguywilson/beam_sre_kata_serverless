@@ -40,7 +40,7 @@ resource "random_id" "bucket_id" {
 }
 
 # Create a zip file for the lambda function
-data "archive_file" "lambda_zip" {
+resource "archive_file" "lambda_zip" {
   type        = "zip"
   output_path = "${path.module}/lambda_function.zip"
 
@@ -49,7 +49,6 @@ data "archive_file" "lambda_zip" {
     filename = "lambda_function.py"
   }
 
-  # Install Python dependencies and include them in the zip file
   source {
     content  = filebase64("${path.module}/requirements.txt")
     filename = "requirements.txt"
@@ -59,15 +58,11 @@ data "archive_file" "lambda_zip" {
 resource "null_resource" "pip_install" {
   provisioner "local-exec" {
     command = <<-EOF
+      mkdir -p ${path.module}/python
       pip install -r ${path.module}/requirements.txt -t ${path.module}/python
-      cd ${path.module} && zip -r lambda_function.zip python/
+      cp ${path.module}/lambda_function.py ${path.module}/python/
+      cd ${path.module}/python && zip -r ${path.module}/lambda_function.zip .
     EOF
-
-    depends_on = [data.archive_file.lambda_zip]
-  }
-
-  triggers = {
-    always_run = "${timestamp()}"
   }
 }
 
@@ -75,8 +70,6 @@ resource "aws_s3_object" "lambda_code" {
   bucket = aws_s3_bucket.lambda_code_bucket.bucket
   key    = "lambda_function.zip"
   source = "${path.module}/lambda_function.zip"
-
-  depends_on = [null_resource.pip_install]
 }
 
 resource "aws_lambda_function" "brewery_lambda" {
@@ -103,7 +96,6 @@ resource "aws_cloudwatch_log_group" "lambda_log_group" {
   name              = "/aws/lambda/${aws_lambda_function.brewery_lambda.function_name}"
   retention_in_days = 14
   tags              = local.common_tags
-  depends_on        = [aws_lambda_function.brewery_lambda]
 }
 
 locals {
