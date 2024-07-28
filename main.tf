@@ -87,9 +87,9 @@ resource "aws_cloudwatch_log_group" "lambda_log_group" {
 resource "null_resource" "pip_install" {
   provisioner "local-exec" {
     command = <<-EOT
-      mkdir -p ./python &&
-      cp ./lambda_function.py ./python/ &&
-      cd ./python && zip -r ../lambda_function.zip .
+      if not exist python mkdir python
+      copy lambda_function.py python
+      cd python && powershell Compress-Archive -Path * -DestinationPath ../lambda_function.zip
     EOT
   }
 }
