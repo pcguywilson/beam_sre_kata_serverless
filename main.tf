@@ -40,36 +40,26 @@ resource "random_id" "bucket_id" {
 }
 
 # Create a zip file for the lambda function
-resource "archive_file" "lambda_zip" {
-  type        = "zip"
-  output_path = "${path.module}/lambda_function.zip"
-
-  source {
-    content  = file("${path.module}/lambda_function.py")
-    filename = "lambda_function.py"
-  }
-
-  source {
-    content  = filebase64("${path.module}/requirements.txt")
-    filename = "requirements.txt"
-  }
-}
-
 resource "null_resource" "pip_install" {
   provisioner "local-exec" {
     command = <<-EOF
       mkdir -p ${path.module}/python
       pip install -r ${path.module}/requirements.txt -t ${path.module}/python
       cp ${path.module}/lambda_function.py ${path.module}/python/
-      cd ${path.module}/python && zip -r ${path.module}/lambda_function.zip .
+      cd ${path.module}/python && zip -r ../lambda_function.zip .
     EOF
   }
+}
+
+data "local_file" "lambda_zip" {
+  depends_on = [null_resource.pip_install]
+  filename   = "${path.module}/lambda_function.zip"
 }
 
 resource "aws_s3_object" "lambda_code" {
   bucket = aws_s3_bucket.lambda_code_bucket.bucket
   key    = "lambda_function.zip"
-  source = "${path.module}/lambda_function.zip"
+  source = data.local_file.lambda_zip.filename
 }
 
 resource "aws_lambda_function" "brewery_lambda" {
