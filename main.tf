@@ -6,6 +6,7 @@ locals {
   common_tags = {
     Owner = "Swilson"
   }
+  lambda_logging_policy_name = "lambda-logging-policy-${replace(formatdate("YYYYMMDDhhmmss", timestamp()), ":", "-")}"
 }
 
 # IAM Role for Lambda
@@ -32,13 +33,8 @@ resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
-resource "aws_iam_role_policy_attachment" "lambda_logging_policy_attachment" {
-  role       = aws_iam_role.lambda_role.name
-  policy_arn = aws_iam_policy.lambda_logging_policy.arn
-}
-
 resource "aws_iam_policy" "lambda_logging_policy" {
-  name   = "lambda-logging-policy"
+  name   = local.lambda_logging_policy_name
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -54,6 +50,11 @@ resource "aws_iam_policy" "lambda_logging_policy" {
     ]
   })
   tags = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_logging_policy_attachment" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = aws_iam_policy.lambda_logging_policy.arn
 }
 
 # Create Lambda function
