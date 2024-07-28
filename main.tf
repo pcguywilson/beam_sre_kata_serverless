@@ -38,9 +38,8 @@ data "archive_file" "lambda_zip" {
   output_path = "${path.module}/lambda_function.zip"
 }
 
-# Create an S3 bucket for CodeBuild
-resource "aws_s3_bucket" "codebuild_bucket" {
-  bucket = "codebuild-bucket-${random_id.bucket_id.hex}"
+resource "aws_s3_bucket" "lambda_code_bucket" {
+  bucket = "lambda-code-bucket-${random_id.bucket_id.hex}"
   tags   = local.common_tags
 }
 
@@ -48,83 +47,18 @@ resource "random_id" "bucket_id" {
   byte_length = 8
 }
 
-# Upload buildspec and tests to S3
-resource "aws_s3_object" "buildspec" {
-  bucket = aws_s3_bucket.codebuild_bucket.bucket
-  key    = "buildspec.yml"
-  source = "${path.module}/buildspec.yml"
-}
-
 resource "aws_s3_object" "lambda_code" {
-  bucket = aws_s3_bucket.codebuild_bucket.bucket
-  key    = "lambda/lambda_function.py"
-  source = "${path.module}/lambda/lambda_function.py"
-}
-
-resource "aws_s3_object" "tests" {
-  bucket = aws_s3_bucket.codebuild_bucket.bucket
-  key    = "tests/test_lambda_function.py"
-  source = "${path.module}/tests/test_lambda_function.py"
-}
-
-# Create IAM role for CodeBuild
-resource "aws_iam_role" "codebuild_role" {
-  name = "codebuild-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Action = "sts:AssumeRole",
-        Effect = "Allow",
-        Principal = {
-          Service = "codebuild.amazonaws.com"
-        }
-      }
-    ]
-  })
-  tags = local.common_tags
-}
-
-resource "aws_iam_role_policy_attachment" "codebuild_policy" {
-  role       = aws_iam_role.codebuild_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSCodeBuildDeveloperAccess"
-}
-
-# Create CodeBuild project
-resource "aws_codebuild_project" "lambda_tests" {
-  name           = "lambda-tests"
-  service_role   = aws_iam_role.codebuild_role.arn
-  artifacts {
-    type = "NO_ARTIFACTS"
-  }
-  environment {
-    compute_type                = "BUILD_GENERAL1_SMALL"
-    image                       = "aws/codebuild/standard:4.0"
-    type                        = "LINUX_CONTAINER"
-    image_pull_credentials_type = "CODEBUILD"
-  }
-  source {
-    type     = "S3"
-    location = "${aws_s3_bucket.codebuild_bucket.bucket}/buildspec.yml"
-    buildspec = "buildspec.yml"
-  }
-  tags = local.common_tags
-}
-
-# Trigger CodeBuild to run the tests
-resource "null_resource" "trigger_codebuild" {
-  provisioner "local-exec" {
-    command = "aws codebuild start-build --project-name ${aws_codebuild_project.lambda_tests.name}"
-  }
-  depends_on = [aws_codebuild_project.lambda_tests]
+  bucket = aws_s3_bucket.lambda_code_bucket.bucket
+  key    = "lambda_function.zip"
+  source = data.archive_file.lambda_zip.output_path
 }
 
 resource "aws_lambda_function" "brewery_lambda" {
-  filename         = data.archive_file.lambda_zip.output_path
+  s3_bucket        = aws_s3_bucket.lambda_code_bucket.bucket
+  s3_key           = aws_s3_object.lambda_code.key
   function_name    = "brewery-lambda"
   role             = aws_iam_role.lambda_role.arn
   handler          = "lambda_function.lambda_handler"
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
   runtime          = "python3.8"
   timeout          = 60
   tags             = local.common_tags
@@ -135,9 +69,6 @@ resource "aws_lambda_function" "brewery_lambda" {
       STATE = "Ohio"
     }
   }
-
-  # Ensure the Lambda function is created after the CodeBuild is triggered
-  depends_on = [null_resource.trigger_codebuild]
 }
 
 resource "aws_cloudwatch_log_group" "lambda_log_group" {
