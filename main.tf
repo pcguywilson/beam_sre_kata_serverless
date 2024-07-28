@@ -78,8 +78,13 @@ resource "aws_cloudwatch_log_group" "lambda_log_group" {
   depends_on        = [aws_lambda_function.brewery_lambda]
 }
 
+# Use formatdate() to create a valid IAM policy name
+locals {
+  lambda_logging_policy_name = "lambda-logging-policy-${replace(formatdate("YYYYMMDDhhmmss", timestamp()), ":", "-")}"
+}
+
 resource "aws_iam_policy" "lambda_logging_policy" {
-  name = "lambda-logging-policy-${timestamp()}"
+  name   = local.lambda_logging_policy_name
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
